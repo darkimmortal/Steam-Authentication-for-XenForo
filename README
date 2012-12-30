@@ -1,3 +1,12 @@
+== New in this fork ==
+
+- Uses JSON API - one AJAX request per page regardless of amount of steam profiles
+- Aesthetic changes?
+- Other stuff I've forgotten
+- Good luck getting this working :V
+
+
+
 Steam Authentication & Integration
   A XenForo Addon
 

@@ -29,23 +29,35 @@ class Steam_Helper_Steam {
 		$this->ch = curl_init();
 		curl_setopt($this->ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($this->ch, CURLOPT_TIMEOUT, 4);
+		if(!ini_get('safe_mode') && !ini_get('open_basedir'))
+		{
+			curl_setopt($this->ch, CURLOPT_FOLLOWLOCATION, TRUE);
+		}
 	}	
 
 	public function getUserInfo($steam_id) {
-		// cURL
-		curl_setopt($this->ch, CURLOPT_URL, "http://steamcommunity.com/profiles/{$steam_id}/?xml=1");
-		$result = curl_exec($this->ch);
-		$xml = simplexml_load_string($result);
-
-        if(!empty($xml)) {
+		
+		if(!ini_get('safe_mode') && !ini_get('open_basedir'))
+		{
+			// cURL
+			curl_setopt($this->ch, CURLOPT_URL, "http://steamcommunity.com/profiles/{$steam_id}/?xml=1");
+			$result = curl_exec($this->ch);
+			$result = trim($result);
+			$xml = simplexml_load_string($result);
+		}
+		else
+		{
+			$xml = simplexml_load_file("http://steamcommunity.com/profiles/{$steam_id}/?xml=1");
+		}
+		if(!empty($xml)) {
 			return array(
-    	        'username' => $xml->steamID,
-	            'avatar' => $xml->avatarFull,
+				'username' => $xml->steamID,
+				'avatar' => $xml->avatarFull,
 				'icon' => $xml->avatarIcon,
 				'state' => $xml->onlineState
 
 			);
-        } else {
+		} else {
 			return array(
 				'username' => "Unknown Steam Account",
 				'avatar' => "Ruh Roh!"
@@ -53,44 +65,53 @@ class Steam_Helper_Steam {
 		}
 	}
 
-    public function getUserGames($steam_id) {
-        $games = array();
-
-		// cURL
-		curl_setopt($this->ch, CURLOPT_URL, "http://steamcommunity.com/profiles/$steam_id/games/?xml=1");
-		$result = curl_exec($this->ch);
-		$xml = simplexml_load_string($result);
-
-        if(!empty($xml)) {
+	public function getUserGames($steam_id) {
+		$games = array();
+		if(!ini_get('safe_mode') && !ini_get('open_basedir'))
+		{
+			// cURL
+			curl_setopt($this->ch, CURLOPT_URL, "http://steamcommunity.com/profiles/$steam_id/games/?xml=1");
+			curl_setopt($this->ch, CURLOPT_TIMEOUT, 5);
+			ob_start();
+			$result = curl_exec($this->ch);
+			echo $result;
+			$result = ob_get_clean();
+			$result = trim($result);
+			if(strpos($result, 'Error 503 Service Unavailable') !== false)
+				return array();
+			$xml = simplexml_load_string($result);
+		}
+		else
+		{
+			$xml = simplexml_load_file("http://steamcommunity.com/profiles/$steam_id/games/?xml=1");
+		}
+		if(!empty($xml)) {
 			if(isset($xml->games)) {
-	            foreach($xml->games->children() as $game) {
-                	$appId = isset($game->appID) ? $game->appID : 0;
-            	    $appName = isset($game->name) ? addslashes($game->name) : "";
-        	        $appLogo = isset($game->logo) ? addslashes($game->logo) : "";
-    	            $appLink = isset($game->storeLink) ? addslashes($game->storeLink) : "";
-	                $hours = isset($game->hoursOnRecord) ? $game->hoursOnRecord : 0;
+				foreach($xml->games->children() as $game) {
+					$appId = isset($game->appID) ? $game->appID : 0;
+					$appName = isset($game->name) ? addslashes($game->name) : "";
+					$appLogo = isset($game->logo) ? addslashes($game->logo) : "";
+					$appLink = isset($game->storeLink) ? addslashes($game->storeLink) : "";
+					$hours = isset($game->hoursOnRecord) ? $game->hoursOnRecord : 0;
 					$hoursRecent = isset($game->hoursLast2Weeks) ? $game->hoursLast2Weeks : 0;
-
-            	    if($appId == 0 || $appName == "") {
-        	            continue;
-    	            }
-
-	                $games["$appId"] = array (
-                    	'name'  => $appName,
-                	    'logo'  => $appLogo,
-            	        'link'  => $appLink,
-        	            'hours' => $hours,
+					if($appId == 0 || $appName == "") {
+						continue;
+					}
+					$games["$appId"] = array (
+						'name'  => $appName,
+						'logo'  => $appLogo,
+						'link'  => $appLink,
+						'hours' => $hours,
 						'hours_recent' => $hoursRecent
-    	            );
-	            }
+					);
+				}
 			}
-        }
-
-        return $games;
-    }
+		}
+		return $games;
+	}
 
 	public function deleteSteamData($user_id) {
-        $db = XenForo_Application::get('db');
+		$db = XenForo_Application::get('db');
 		$db->query("DELETE FROM xf_user_steam_games WHERE user_id = $user_id");
 	}
 
@@ -104,7 +125,7 @@ class Steam_Helper_Steam {
 			'link' => $row['game_link']
 		);
 
-        return $rVal;
+		return $rVal;
 	}
 
 	public function getGameOwners($id) {
@@ -127,7 +148,7 @@ class Steam_Helper_Steam {
 		$rVal = array();
 		$db = XenForo_Application::get('db');
 		$results = $db->fetchAll("SELECT g.game_id, g.game_name, g.game_logo, g.game_link, COUNT(*) AS count FROM xf_user_steam_games u, xf_steam_games g WHERE u.game_id = g.game_id GROUP BY u.game_id ORDER BY count DESC, g.game_id ASC LIMIT $limit;");
-        foreach($results as $row) {
+		foreach($results as $row) {
 			$rVal[$row['game_id']] = array(
 				'name' => $row['game_name'],
 				'count' => $row['count'],
@@ -156,19 +177,19 @@ class Steam_Helper_Steam {
 	}
 
 	public function getGamePlayedRecentStatistics($limit=25) {
-        $rVal = array();
-        $db = XenForo_Application::get('db');
-        $results = $db->fetchAll("SELECT g.game_id, g.game_name, g.game_logo, g.game_link, SUM(u.game_hours_recent) AS hours FROM xf_user_steam_games u, xf_steam_games g WHERE u.game_id = g.game_id GROUP BY u.game_id ORDER BY hours DESC, g.game_id ASC LIMIT $limit;");
-        foreach($results as $row) {
-            $rVal[$row['game_id']] = array(
-                'name' => $row['game_name'],
-                'hours' => $row['hours'],
-                'logo' => $row['game_logo'],
-                'link' => $row['game_link']
-            );
-        }
+		$rVal = array();
+		$db = XenForo_Application::get('db');
+		$results = $db->fetchAll("SELECT g.game_id, g.game_name, g.game_logo, g.game_link, SUM(u.game_hours_recent) AS hours FROM xf_user_steam_games u, xf_steam_games g WHERE u.game_id = g.game_id GROUP BY u.game_id ORDER BY hours DESC, g.game_id ASC LIMIT $limit;");
+		foreach($results as $row) {
+			$rVal[$row['game_id']] = array(
+				'name' => $row['game_name'],
+				'hours' => $row['hours'],
+				'logo' => $row['game_logo'],
+				'link' => $row['game_link']
+			);
+		}
 
-        return $rVal;
+		return $rVal;
 	}
 
 	public function getAvailableGames() {
@@ -202,17 +223,17 @@ class Steam_Helper_Steam {
 	}
 
 	public static function convertIdToString($id) {
-        $steamId1  = substr($id, -1) % 2;
-        $steamId2a = intval(substr($id, 0, 4)) - 7656;
-        $steamId2b = substr($id, 4) - 1197960265728;
-        $steamId2b = $steamId2b - $steamId1;
+		$steamId1  = substr($id, -1) % 2;
+		$steamId2a = intval(substr($id, 0, 4)) - 7656;
+		$steamId2b = substr($id, 4) - 1197960265728;
+		$steamId2b = $steamId2b - $steamId1;
 
-        if($steamId2a <= 0 && $steamId2b <= 0) {
-            throw new SteamCondenserException("SteamID $id is too small.");
-        }
+		if($steamId2a <= 0 && $steamId2b <= 0) {
+			throw new SteamCondenserException("SteamID $id is too small.");
+		}
 
-        return "STEAM_0:$steamId1:" . (($steamId2a + $steamId2b) / 2);
-    }
+		return "STEAM_0:$steamId1:" . (($steamId2a + $steamId2b) / 2);
+	}
 }
 
 ?>

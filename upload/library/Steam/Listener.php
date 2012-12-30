@@ -61,10 +61,13 @@ class Steam_Listener {
 			case 'account_wrapper_sidebar_settings':
 				$contents .= $template->create('steam_account_wrapper_sidebar_settings', $hookParams);
 				break;
-			case 'message_user_info_text':
+			case 'message_user_info_wizardry':
 				$contents .= $template->create('steam_message_user_info', array_merge($hookParams, $template->getParams()));
 				break;
 			case 'member_view_info_block':
+				$contents .= $template->create('steam_member_view_info', array_merge($hookParams, $template->getParams()));
+				break;
+			case 'steam_block_shite':
 				$contents .= $template->create('steam_member_view_info', array_merge($hookParams, $template->getParams()));
 				break;
 			case 'page_container_head':

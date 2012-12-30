@@ -1,21 +1,19 @@
 /**
- *	This file is part of SteamProfile.
- *
  *	Written by Nico Bergemann <barracuda415@yahoo.de>
- *	Copyright 2009 Nico Bergemann
+ *	Copyright 2011 Nico Bergemann
  *
- *	SteamProfile is free software: you can redistribute it and/or modify
+ *	This program is free software: you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
  *	the Free Software Foundation, either version 3 of the License, or
  *	(at your option) any later version.
  *
- *	SteamProfile is distributed in the hope that it will be useful,
+ *	This program is distributed in the hope that it will be useful,
  *	but WITHOUT ANY WARRANTY; without even the implied warranty of
  *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *	GNU General Public License for more details.
  *
  *	You should have received a copy of the GNU General Public License
- *	along with SteamProfile.  If not, see <http://www.gnu.org/licenses/>.
+ *	along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 jQuery.fn.attrAppend = function(name, value) {
@@ -24,49 +22,52 @@ jQuery.fn.attrAppend = function(name, value) {
 		elem = $(this);
 		
 		// append attribute only if extisting and not empty
-		if(elem.attr(name) !== undefined && elem.attr(name) != "") {
+		if (elem.attr(name) !== undefined && elem.attr(name) != "") {
 			elem.attr(name, value + elem.attr(name));
 		}
 	});
 };
 
 function SteamProfile() {
+	// path/file config
+	var scriptFile = "steamprofile.js";
+	var configFile = "steamprofile.xml";
+	var proxyFile = "../jsonproxy.php";
 	var basePath;
 	var themePath;
-	var showGameBanner;
-	var showSliderMenu;
-	var showTF2ItemsIcon;
-	var profiles = [];
-	var profileCache = {};
-	var loadLock = false;
-	var configLoaded = false;
-	var configData;
-	var profileTpl;
-	var loadingTpl;
-	var errorTpl;
+	
+	// language config
 	var lang = "english";
 	var langLocal = "english";
 	var langData = {
 		english : {
-			loading : "Loading…",
+			loading : "Loading...",
 			no_profile : "This user has not yet set up their Steam Community profile.",
 			private_profile : "This profile is private.",
 			invalid_data : "Invalid profile data.",
 			join_game : "Join Game",
 			add_friend : "Add to Friends",
-			view_tf2items : "View TF2 Backpack"
+			view_tf2items : "View TF2 Backpack",
+			profile_visibilities : {
+				0 : "Offline",
+				1 : "Online",
+				2 : "Busy",
+				3 : "Away",
+				4 : "Snooze",
+				5 : "In-Game"
+			}
 		},
 		german : {
-			loading : "Lade…",
+			loading : "Lade...",
 			no_profile : "Dieser Benutzer hat bisher kein Steam Community Profil angelegt.",
-			private_profile : "Dieses Profil is privat.",
+			private_profile : "Dieses Profil ist privat.",
 			invalid_data : "Ungültige Profildaten.",
 			join_game : "Spiel beitreten",
 			add_friend : "Als Freund hinzufügen",
-			view_tf2items : "TF2 Rucksack ansehen"
+			view_tf2items : "TF2-Items ansehen"
 		},
 		portuguese : {
-			loading : "Carregando…",
+			loading : "Carregando...",
 			no_profile : "This user has not yet set up their Steam Community profile.",
 			private_profile : "This profile is private.",
 			invalid_data : "Invalid profile data.",
@@ -75,23 +76,45 @@ function SteamProfile() {
 			view_tf2items : "Ver Itens do TF2"
 		}
 	};
+	
+	// misc config
+	var loadLock = false;
+	var configLoaded = false;
+	var configData;
+	var showGameBanner;
+	var showSliderMenu;
+	var showTF2ItemsIcon;
 
-	this.init = function() {
-		// get our <script>-tag
-		var scriptElement = $('script[src$=\'steamprofile.js\']');
-		
-		// in rare cases, this script could be included without <script>
-		if(scriptElement.length === 0) {
-			return;
+	// profile data
+	var profiles = [];
+	var profileCache = {};
+	
+	// template data
+	var profileTpl;
+	var loadingTpl;
+	var errorTpl;
+
+	this.init = function() {		
+		if (typeof spBasePath == "string") {
+			basePath = spBasePath;
+		} else {
+			// extract the path from the src attribute
+
+			// get our <script>-tag
+			var scriptElement = $('script[src$=\'' + scriptFile + '\']');
+			
+			// in rare cases, this script could be included without <script>
+			if (scriptElement.length === 0) {
+				return;
+			}
+			
+			basePath = scriptElement.attr('src').replace(scriptFile, '');
 		}
-		
-		// extract the path from the src attribute
-		basePath = scriptElement.attr('src').replace('steamprofile.js', '');
 		
 		// load xml config
 		jQuery.ajax({
 			type: 'GET',
-			url: basePath + 'steamprofile.xml',
+			url: basePath + configFile,
 			dataType: 'html',
 			complete: function(request, status) {
 				configData = $(request.responseXML);
@@ -103,7 +126,7 @@ function SteamProfile() {
 	this.refresh = function() {
 		// make sure we already got a loaded config
 		// and no pending profile loads
-		if(!configLoaded || loadLock) {
+		if (!configLoaded || loadLock) {
 			return;
 		}
 		
@@ -114,7 +137,7 @@ function SteamProfile() {
 		profiles = $('.steamprofile[title]');
 		
 		// are there any profiles to build?
-		if(profiles.length === 0) {
+		if (profiles.length === 0) {
 			return;
 		}
 
@@ -128,14 +151,14 @@ function SteamProfile() {
 		// replace placeholders with loading template and make them visible
 		profiles.empty().append(loadingTpl);
 		
-		// load first profile
-		loadProfile(0);
+		// load profiles
+		buildProfiles();
 	};
 	
 	this.load = function(profileID) {
 		// make sure we already got a loaded config
 		// and no pending profile loads
-		if(!configLoaded || loadLock) {
+		if (!configLoaded || loadLock) {
 			return;
 		}
 		
@@ -164,7 +187,11 @@ function SteamProfile() {
 	};
 	
 	function getXMLProxyURL(profileID) {
-		return basePath + 'xmlproxy.php?id=' + escape(profileID) + '&lang=' + escape(lang);
+		return basePath + proxyFile + '?id=' + escape(profileID) + '&lang=' + escape(lang);
+	}
+	
+	function getJSONProxyURL(friendQueryString) {
+		return basePath + proxyFile + '?steamids=' + escape(friendQueryString);
 	}
 	
 	function getConfigString(name) {
@@ -183,7 +210,7 @@ function SteamProfile() {
 		langLocal = lang;
 		
 		// fall back to english if no translation is available for the selected language in SteamProfile
-		if(langData[langLocal] == null) {
+		if (langData[langLocal] == null) {
 			langLocal = "english";
 		}
 	
@@ -214,113 +241,140 @@ function SteamProfile() {
 		SteamProfile.refresh();
 	}
 
-	function loadProfile(profileIndex) {
-		// check if we have loaded all profiles already
-		if(profileIndex >= profiles.length) {
-			// unlock loading
-			loadLock = false;
-			return;
-		}
+	function buildProfiles() {
+		var steamMaxProfiles = 99;
+		var finishedSteamIDs = [];
+		var j = 0, friendQueryString = "";
 		
-		var profile = $(profiles[profileIndex++]);
-		var profileID = profile.data('profileID');
-		
-		if(profileCache[profileID] == null) {
-			// load xml data
-			jQuery.ajax({
-				type: 'GET',
-				url: getXMLProxyURL(profileID),
-				dataType: 'xml',
-				complete: function(request, status) {
-					// build profile and cache DOM for following IDs
-					profileCache[profileID] = createProfile($(request.responseXML));
-					// replace placeholder with profile
-					profile.empty().append(profileCache[profileID]);
-					// load next profile
-					loadProfile(profileIndex);
+		var uniqueProfiles = $(profiles).length;
+		for(var i = 0; i < $(profiles).length; i++)
+		{
+			var hasAddedSteamID = false;
+			if (typeof profileCache[$(profiles[i]).data('profileID')] === "undefined") 
+			{
+				if(finishedSteamIDs[$(profiles[i]).data('profileID')] === true)
+				{
+					uniqueProfiles = uniqueProfiles - 1;
 				}
-			});
-		} else {
-			// the profile was build previously, just copy it
-			var profileCopy = profileCache[profileID].clone();
-			createEvents(profileCopy);
-			profile.empty().append(profileCopy);
-			// load next profile
-			loadProfile(profileIndex);
+				else
+				{
+					friendQueryString = friendQueryString + $(profiles[i]).data('profileID');
+					finishedSteamIDs[$(profiles[i]).data('profileID')] = true;
+					hasAddedSteamID = true;
+					j++;
+				}
+				if (j == steamMaxProfiles || j == uniqueProfiles)
+				{
+					jQuery.ajax({
+						type: 'GET',
+						url: getJSONProxyURL(friendQueryString),
+						dataType: 'json',
+						cache: true,
+						success: function(data, status, request) {
+							$(data.response.players).each( function (index){
+								var steamID = $(this)[0].steamid;
+								profileCache[steamID] = createProfile($(this));
+								for(var k = 0; k < $(profiles).length; k++)
+								{
+									if($(profiles[k]).data('profileID') == steamID)
+									{
+										$(profiles[k]).html(profileCache[steamID].html());
+									}
+								}
+							});
+						}
+					});
+					j = 0;
+				}
+				else if (hasAddedSteamID && j > 1)
+				{
+					friendQueryString = friendQueryString + ',';
+				}
+			}
+			else
+			{
+				for(var k = 0; k < $(profiles).length; k++)
+				{
+					if($(profiles[k]).data('profileID') == steamID)
+					{
+						$(profiles[k]).append(profileCache[steamID]);
+					}
+				}
+			}
 		}
+		
+		loadLock = false;
+		
+		//Need to parse non-existence errors here.
+		//return createError(langData[langLocal].no_profile);
 	}
 
 	function createProfile(profileData) {
-		if (profileData.find('profile').length !== 0) {
-			var profile;
+		var profile;
+		profileData = profileData[0];
+		// profile data looks good
+		profile = profileTpl.clone();
+		var onlineState = profileData.profilestate;
 		
-			if (profileData.find('profile > steamID').text() == '') {
-				// the profile doesn't exists yet
-				return createError(langData[langLocal].no_profile);
+		// set state class, avatar image and name
+		profile.find('.sp-badge').addClass('sp-' + onlineState);
+		profile.find('.sp-avatar img').attr('src', profileData.avatar);
+		profile.find('.sp-info a').append(profileData.personaname);
+		
+		// set state message
+		
+		if(profileData.communityvisibilitystate != 3)
+		{
+			profile.find('.sp-info').append(langData[langLocal].private_profile);
+		}
+		else if(typeof profileData.gameid != "undefined")
+		{
+			profile.find('.sp-info').append(langData[langLocal].profile_visibilities[5]);
+		}
+		else
+		{
+			profile.find('.sp-info').append(langData[langLocal].profile_visibilities[profileData.profilestate]);
+		}
+		
+		profile.removeClass('sp-bg-game');
+		profile.find('.sp-bg-fade').removeClass('sp-bg-fade');
+		/* FIXME
+		// set game background
+		//if (showGameBanner && profileData.find('profile > inGameInfo > gameLogoSmall').length !== 0) {
+		//	profile.css('background-image', 'url(' + profileData.find('profile > inGameInfo > gameLogoSmall').text() + ')');
+		//} else 
+		*/
+
+		
+		if (showSliderMenu) {
+			if (typeof profileData.gameserverip != "undefined") {
+				// add 'Join Game' link href
+				profile.find('.sp-joingame').attr('href', 'steam://connect/' + profileData.gameserverip);
 			} else {
-				// profile data looks good
-				profile = profileTpl.clone();
-				var onlineState = profileData.find('profile > onlineState').text();
-				
-				// set state class, avatar image and name
-				profile.find('.sp-badge').addClass('sp-' + onlineState);
-				profile.find('.sp-avatar img').attr('src', profileData.find('profile > avatarIcon').text());
-				profile.find('.sp-info a').append(profileData.find('profile > steamID').text());
-				
-				// set state message
-				if (profileData.find('profile > visibilityState').text() == '1') {
-					profile.find('.sp-info').append(langData[langLocal].private_profile);
-				} else {
-					profile.find('.sp-info').append(profileData.find('profile > stateMessage').text());
-				}
-				
-				// set game background
-				if (showGameBanner && profileData.find('profile > inGameInfo > gameLogoSmall').length !== 0) {
-					profile.css('background-image', 'url(' + profileData.find('profile > inGameInfo > gameLogoSmall').text() + ')');
-				} else {
-					profile.removeClass('sp-bg-game');
-					profile.find('.sp-bg-fade').removeClass('sp-bg-fade');
-				}
-				
-				if(showSliderMenu) {
-					if (profileData.find('profile > inGameInfo > gameJoinLink').length !== 0) {
-						// add 'Join Game' link href
-						profile.find('.sp-joingame').attr('href', profileData.find('profile > inGameInfo > gameJoinLink').text());
-					} else {
-						// the user is not in a multiplayer game, remove 'Join Game' link
-						profile.find('.sp-joingame').remove();
-					}
-				
-					if(showTF2ItemsIcon) {
-						// add 'View Items' link href
-						profile.find('.sp-viewitems')
-							.attr('href', 'http://tf2items.com/profiles/' + profileData.find('profile > steamID64').text());
-					} else {
-						profile.find('.sp-viewitems').remove();
-					}
-					
-					// add 'Add Friend' link href
-					profile.find('.sp-addfriend')
-						.attr('href', 'steam://friends/add/' + profileData.find('profile > steamID64').text());
-					
-					// add other link hrefs
-					profile.find('.sp-avatar a, .sp-info a.sp-name')
-						.attr('href', 'http://steamcommunity.com/profiles/' + profileData.find('profile > steamID64').text());
-					
-					createEvents(profile);
-				} else {
-					profile.find('.sp-extra').remove();
-				}
+				// the user is not in a multiplayer game, remove 'Join Game' link
+				profile.find('.sp-joingame').remove();
+			}
+		
+			if (showTF2ItemsIcon) {
+				// add 'View Items' link href
+				profile.find('.sp-viewitems')
+					.attr('href', 'http://tf2items.com/profiles/' + profileData.steamid);
+			} else {
+				profile.find('.sp-viewitems').remove();
 			}
 			
-			return profile;
-		} else if (profileData.find('response').length !== 0) {
-			// steam community returned a message
-			return createError(profileData.find('response > error').text());
+			// add 'Add Friend' link href
+			profile.find('.sp-addfriend').attr('href', 'steam://friends/add/' + profileData.steamid);
+			
+			createEvents(profile);
 		} else {
-			// we got invalid xml data
-			return createError(langData[langLocal].invalid_data);
+			profile.find('.sp-extra').remove();
 		}
+		
+		// add other link hrefs
+		profile.find('.sp-avatar a, .sp-info a.sp-name').attr('href', 'http://steamcommunity.com/profiles/' + profileData.steamid);
+		
+		return profile;
 	}
 	
 	function createEvents(profile) {

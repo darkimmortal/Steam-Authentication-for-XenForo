@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<addon addon_id="Steam" title="Steam Auth" version_string="1.0.7" version_id="8" url="" install_callback_class="Steam_Manufacture" install_callback_method="build" uninstall_callback_class="Steam_Manufacture" uninstall_callback_method="destroy">
+<addon addon_id="Steam" title="Steam Auth" version_string="1.0.7c" version_id="10" url="" install_callback_class="Steam_Manufacture" install_callback_method="build" uninstall_callback_class="Steam_Manufacture" uninstall_callback_method="destroy">
   <admin_navigation>
     <navigation navigation_id="steam" parent_navigation_id="" display_order="60" link="steam" admin_permission_id="viewStatistics" debug_only="0" hide_no_children="0"/>
     <navigation navigation_id="steam_info_users" parent_navigation_id="steam_information" display_order="1" link="steam/users" admin_permission_id="viewStatistics" debug_only="0" hide_no_children="0"/>
@@ -337,8 +337,8 @@
   <code_event_listeners>
     <listener event_id="criteria_user" execute_order="10" callback_class="Steam_Helper_Criteria" callback_method="criteriaUser" active="1" description=""/>
     <listener event_id="load_class_controller" execute_order="10" callback_class="Steam_Listener" callback_method="loadClassController" active="1" description=""/>
-    <listener event_id="template_create" execute_order="10" callback_class="Steam_Listener" callback_method="templateCreate" active="1" description=""/>
-    <listener event_id="template_hook" execute_order="10" callback_class="Steam_Listener" callback_method="templateHook" active="1" description=""/>
+    <listener event_id="template_create" execute_order="11" callback_class="Steam_Listener" callback_method="templateCreate" active="1" description=""/>
+    <listener event_id="template_hook" execute_order="11" callback_class="Steam_Listener" callback_method="templateHook" active="1" description=""/>
   </code_event_listeners>
   <cron>
     <entry entry_id="steam_user_poll" cron_class="Steam_Cron" cron_method="update" active="1"><![CDATA[{"day_type":"dom","dom":["-1"],"hours":["3","15"],"minutes":["0"]}]]></entry>
@@ -599,7 +599,7 @@
     <template title="steam_account_wrapper_sidebar_settings" version_id="1" version_string="1.0.0"><![CDATA[<li><a
 	class="{xen:if "{$selectedKey} == 'account/steam'", 'secondaryContent', 'primaryContent'}"
 	href="{xen:link account/steam}">{xen:phrase steam_integration}</a></li>]]></template>
-    <template title="steam_js" version_id="1" version_string="1.0.0"><![CDATA[<script src="js/steam/steamprofile.min.js"></script>]]></template>
+    <template title="steam_js" version_id="1" version_string="1.0.0"><![CDATA[<script src="js/steam/ajax/steamprofile.js"></script><script type="text/javascript">spBasePath = 'js/steam/ajax/';</script>]]></template>
     <template title="steam_login_bar_item" version_id="1" version_string="1.0.0"><![CDATA[<li><a href="{xen:link register/steam, '', 'reg=1'}" style="text-decoration:none;display: inline-block;">
    <img src="http://cdn.steamcommunity.com/public/images/signinthroughsteam/sits_small.png" alt="Sign up with Steam"}" style="margin:0 14px;"/>
 </a></li>]]></template>
@@ -609,4 +609,5 @@
     <template title="steam_navigation_visitor_tab_link" version_id="1" version_string="1.0.0"><![CDATA[<li><a href="{xen:link account/steam}">{xen:phrase steam_integration}</a></li>]]></template>
   </templates>
   <bb_code_media_sites/>
+  <template_modifications/>
 </addon>
